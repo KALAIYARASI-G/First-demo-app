@@ -1,0 +1,105 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+
+model User {
+  id                  BigInt         @id @default(autoincrement())
+  cognitoSub          String         @unique @map("cognito_sub") @db.VarChar(100)
+  username            String         @unique @db.VarChar(50)
+  email               String         @unique @db.VarChar(100)
+  role                String         @db.VarChar(20)
+  createdAt           DateTime       @default(now()) @map("created_at")
+  assignedTasks       Task[]         @relation("AssignedTasks")
+  createdTasks        Task[]         @relation("CreatedTasks")
+  locations           LocationLog[]
+  tokens              DeviceToken[]
+  user1Conversations  Conversation[] @relation("User1Conversations")
+  user2Conversations  Conversation[] @relation("User2Conversations")
+  sentMessages        Message[]
+  callerCalls         Call[]         @relation("CallerCalls")
+  receiverCalls       Call[]         @relation("ReceiverCalls")
+
+  @@map("users")
+}
+
+model Task {
+  id            BigInt   @id @default(autoincrement())
+  title         String   @db.VarChar(100)
+  description   String?  @db.Text
+  status        String   @default("PENDING") @db.VarChar(20)
+  assignedToId  BigInt?  @map("assigned_to_id")
+  assignedTo    User?    @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById   BigInt?  @map("created_by_id")
+  createdBy     User?    @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tasks")
+}
+
+model LocationLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  timestamp DateTime @default(now()) @map("timestamp")
+
+  @@map("location_logs")
+}
+
+model DeviceToken {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.Text
+  platform  String   @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("device_tokens")
+}
+
+model Conversation {
+  id        BigInt    @id @default(autoincrement())
+  user1Id   BigInt    @map("user1_id")
+  user2Id   BigInt    @map("user2_id")
+  user1     User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2     User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@unique([user1Id, user2Id])
+  @@map("conversations")
+}
+
+model Message {
+  id             BigInt       @id @default(autoincrement())
+  conversationId BigInt       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       BigInt       @map("sender_id")
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  messageText    String       @map("message_text") @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("messages")
+}
+
+model Call {
+  id         BigInt    @id @default(autoincrement())
+  callerId   BigInt    @map("caller_id")
+  caller     User      @relation("CallerCalls", fields: [callerId], references: [id], onDelete: Cascade)
+  receiverId BigInt    @map("receiver_id")
+  receiver   User      @relation("ReceiverCalls", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     String    @db.VarChar(20)
+  startedAt  DateTime  @default(now()) @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+
+  @@map("calls")
+}
